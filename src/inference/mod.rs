@@ -75,6 +75,7 @@ impl InferenceConfig {
 /// Inference engine for LLM
 pub struct InferenceEngine<B: Backend> {
     model: LanguageModel<B>,
+    model_config: ModelConfig,
     tokenizer: SimpleTokenizer,
     device: B::Device,
     config: InferenceConfig,
@@ -84,12 +85,14 @@ impl<B: Backend> InferenceEngine<B> {
     /// Create a new inference engine
     pub fn new(
         model: LanguageModel<B>,
+        model_config: ModelConfig,
         tokenizer: SimpleTokenizer,
         device: B::Device,
         config: InferenceConfig,
     ) -> Self {
         Self {
             model,
+            model_config,
             tokenizer,
             device,
             config,
@@ -101,7 +104,7 @@ impl<B: Backend> InferenceEngine<B> {
         tracing::info!("Generating text for prompt: {}", prompt);
 
         // Tokenize input
-        let tokenized = self.tokenizer.encode(prompt, self.model.config().max_seq_len);
+        let tokenized = self.tokenizer.encode(prompt, self.model_config.max_seq_len);
         let input_len = tokenized.input_ids.len();
 
         // Convert to tensor
@@ -142,7 +145,7 @@ impl<B: Backend> InferenceEngine<B> {
             let logits = self.model.forward(current_ids.clone());
 
             // Get last token logits: [batch=1, vocab_size]
-            let vocab_size = self.model.config().vocab_size;
+            let vocab_size = self.model_config.vocab_size;
             let last_logits = logits
                 .clone()
                 .slice([0..1, (current_ids.dims()[1] - 1)..current_ids.dims()[1], 0..vocab_size])
@@ -157,7 +160,7 @@ impl<B: Backend> InferenceEngine<B> {
 
             // Greedy: take argmax
             let next_token_id = scaled_logits.argmax(0);
-            let next_token = next_token_id.unsqueeze_dim(0).unsqueeze_dim(0);
+            let next_token = next_token_id.unsqueeze_dim::<1>(0).unsqueeze_dim::<2>(0);
 
             // Append to sequence
             current_ids = Tensor::cat(vec![current_ids, next_token], 1);
@@ -182,7 +185,7 @@ impl<B: Backend> InferenceEngine<B> {
 
     /// Get the model configuration
     pub fn model_config(&self) -> &ModelConfig {
-        self.model.config()
+        &self.model_config
     }
 
     /// Get the inference configuration

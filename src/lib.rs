@@ -39,7 +39,7 @@ pub fn init_device() -> burn::backend::cuda::CudaDevice {
     let device = burn::backend::cuda::CudaDevice::default();
 
     tracing::info!("CUDA device initialized successfully");
-    tracing::info!("Device ID: {}", device.index());
+    tracing::info!("Device ID: {}", device.index);
 
     device
 }

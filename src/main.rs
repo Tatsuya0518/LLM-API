@@ -38,7 +38,7 @@ fn main() -> anyhow::Result<()> {
     tracing::info!("  - Max Sequence Length: {}", model_config.max_seq_len);
 
     // Validate configuration
-    model_config.validate()?;
+    model_config.validate().map_err(|e| anyhow::anyhow!(e))?;
 
     // Create model (in production, you would load pre-trained weights here)
     tracing::info!("Initializing model...");
@@ -52,7 +52,7 @@ fn main() -> anyhow::Result<()> {
     let inference_config = InferenceConfig::greedy();
 
     // Create inference engine
-    let engine = InferenceEngine::new(model, tokenizer, device, inference_config);
+    let engine = InferenceEngine::new(model, model_config.clone(), tokenizer, device, inference_config);
 
     // Run inference examples
     tracing::info!("=== Running Inference Examples ===");

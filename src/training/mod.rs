@@ -1,6 +1,7 @@
 use burn::{
+    data::dataloader::Dataset,
     optim::{AdamConfig, Optimizer},
-    tensor::{backend::Backend, Tensor},
+    tensor::{backend::Backend, ElementConversion, Tensor},
     train::{
         metric::{LossMetric, Adaptor},
         LearnerBuilder, MetricEarlyStoppingStrategy, StoppingCondition,
@@ -61,7 +62,7 @@ impl<B: Backend> Trainer<B> {
             .collect();
 
         let input_ids =
-            Tensor::from_data(input_ids_data.as_slice(), &self.device).reshape([batch_size, max_length]);
+            Tensor::<B, 1, burn::tensor::Int>::from_data(input_ids_data.as_slice(), &self.device).reshape([batch_size, max_length]);
 
         // For language modeling, labels are shifted input_ids
         let labels = input_ids.clone();
@@ -83,8 +84,8 @@ impl<B: Backend> Trainer<B> {
         // Reshape logits to [batch * seq_len, vocab_size]
         let logits_flat = logits.reshape([batch_size * seq_len, vocab_size]);
 
-        // Reshape labels to [batch * seq_len]
-        let labels_flat = labels.reshape([batch_size * seq_len]);
+        // Reshape labels to [batch * seq_len, 1] and convert to float
+        let labels_flat = labels.reshape([batch_size * seq_len]).unsqueeze_dim::<2>(1).float();
 
         // Compute cross-entropy loss
         let loss = burn::tensor::loss::cross_entropy_with_logits(logits_flat, labels_flat);

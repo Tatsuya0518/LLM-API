@@ -1,7 +1,7 @@
 use burn::{
     module::Module,
     nn::{
-        attention::{MultiHeadAttention, MultiHeadAttentionConfig},
+        attention::{MhaInput, MultiHeadAttention, MultiHeadAttentionConfig},
         Dropout, DropoutConfig, Embedding, EmbeddingConfig, LayerNorm, LayerNormConfig, Linear,
         LinearConfig,
     },
@@ -37,8 +37,9 @@ impl<B: Backend> TransformerBlock<B> {
 
     pub fn forward(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
         // Self-attention with residual connection
-        let attn_output = self.attention.forward(x.clone(), x.clone(), x.clone(), None);
-        let x = x + self.dropout.forward(attn_output);
+        let mha_input = MhaInput::self_attn(x.clone());
+        let attn_output = self.attention.forward(mha_input);
+        let x = x + self.dropout.forward(attn_output.context);
         let x = self.norm1.forward(x);
 
         // Feed-forward with residual connection
@@ -86,7 +87,7 @@ pub struct LanguageModel<B: Backend> {
     blocks: Vec<TransformerBlock<B>>,
     norm: LayerNorm<B>,
     lm_head: Linear<B>,
-    config: ModelConfig,
+    vocab_size: usize,
 }
 
 impl<B: Backend> LanguageModel<B> {
@@ -105,7 +106,7 @@ impl<B: Backend> LanguageModel<B> {
             blocks,
             norm: norm_config.init(device),
             lm_head: lm_head_config.init(device),
-            config: config.clone(),
+            vocab_size: config.vocab_size,
         }
     }
 
@@ -140,11 +141,12 @@ impl<B: Backend> LanguageModel<B> {
             // Forward pass
             let logits = self.forward(current_ids.clone());
 
-            // Get last token logits: [batch, vocab_size]
-            let last_logits = logits.clone().slice([0..1, -1..-1, 0..self.config.vocab_size]);
+            // Get last token logits: [batch, 1, vocab_size]
+            let [batch, seq_len, _vocab] = logits.dims();
+            let last_logits = logits.clone().slice([0..batch, (seq_len - 1)..seq_len, 0..self.vocab_size]);
 
-            // Greedy: take argmax
-            let next_token = last_logits.argmax(2);
+            // Greedy: take argmax on vocab dimension -> [batch, 1, 1], then squeeze to [batch, 1]
+            let next_token = last_logits.argmax(2).squeeze::<2>(1);
 
             // Append to sequence
             current_ids = Tensor::cat(vec![current_ids, next_token], 1);
@@ -153,9 +155,9 @@ impl<B: Backend> LanguageModel<B> {
         current_ids
     }
 
-    /// Get model configuration
-    pub fn config(&self) -> &ModelConfig {
-        &self.config
+    /// Get vocabulary size
+    pub fn vocab_size(&self) -> usize {
+        self.vocab_size
     }
 }
 
@@ -172,7 +174,7 @@ mod tests {
         let device = Default::default();
         let model = LanguageModel::<TestBackend>::new(&config, &device);
 
-        assert_eq!(model.config().vocab_size, 1000);
+        assert_eq!(model.vocab_size(), 1000);
         assert_eq!(model.blocks.len(), 2);
     }
 
