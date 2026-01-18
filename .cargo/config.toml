@@ -1,0 +1,14 @@
+# CUDA Backend Configuration for NVIDIA GPUs (T4, H100, A100)
+
+[env]
+# CUDA environment variables for Google Colab
+# These are typically set automatically, but can be overridden here
+# CUDA_HOME = "/usr/local/cuda"
+# LD_LIBRARY_PATH = "/usr/local/cuda/lib64"
+
+# Enable logging for debugging (optional)
+# RUST_LOG = "burn=info,llm_api=debug"
+
+[build]
+# Use all available CPU cores for compilation
+jobs = 8
