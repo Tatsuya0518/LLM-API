@@ -5,11 +5,11 @@ edition = "2021"
 
 [dependencies]
 # Burn ML Framework with CUDA backend for NVIDIA GPUs (T4, H100, A100)
-burn = { version = "0.15", features = ["train", "dataset"] }
-burn-cuda = "0.15"
+burn = { version = "0.18", features = ["train", "dataset"] }
+burn-cuda = "0.18"
 
 # Tensor operations (for CPU fallback and testing)
-burn-ndarray = "0.15"
+burn-ndarray = "0.18"
 
 # Tokenization
 tokenizers = { version = "0.20", default-features = false, features = ["onig"] }
